@@ -1,72 +1,46 @@
-﻿using System.Collections.Generic;
-using System.Configuration;
+﻿// Boomtown.Alerting.NewRelic.Platform.Sdk.AgentFactory.cs updated by Tom DeMille @3:32 PM on 05/14/2015  original file creation @1:12 PM on 14/05/2015
+
+#region
+
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Reflection;
-using NewRelic.Platform.Sdk.Extensions;
-using NewRelic.Platform.Sdk.Utils;
+using System.Linq;
+using NewRelic.Platform.Sdk.config;
+using Newtonsoft.Json;
+
+#endregion
+
 
 namespace NewRelic.Platform.Sdk
 {
     /// <summary>
-    /// An abstract utility class provided to easily create Agents from a configuration file
+    ///     An abstract utility class provided to easily create Agents from a configuration file
     /// </summary>
     public abstract class AgentFactory
     {
         private const string ConfigurationFilePath = @"config\plugin.json";
 
-        private static Logger s_log = Logger.GetLogger("AgentFactory");
-
         internal List<Agent> CreateAgents()
-        {
-            List<object> agentConfigurations = ReadJsonFile();
-            List<Agent> agents = new List<Agent>();
-
-            foreach (object properties in agentConfigurations)
-            {
-                agents.Add(CreateAgentWithConfiguration((IDictionary<string, object>)properties));
-            }
-
-            return agents;
-        }
-
-        internal List<object> ReadJsonFile()
         {
             if (!File.Exists(ConfigurationFilePath))
             {
-                throw new FileNotFoundException(string.Format(
-                    CultureInfo.InvariantCulture,
-                    "Unable to locate plugin configuration file at {0}",
-                    Path.GetFullPath(ConfigurationFilePath)));
+                throw new FileNotFoundException(string.Format(CultureInfo.InvariantCulture,
+                                                              "Unable to locate plugin configuration file at {0}",
+                                                              Path.GetFullPath(ConfigurationFilePath)));
             }
 
-            string localPath = Path.Combine(Assembly.GetExecutingAssembly().GetLocalPath(), ConfigurationFilePath);
-            IDictionary<string, object> configContents = JsonHelper.Deserialize(File.ReadAllText(ConfigurationFilePath)) as IDictionary<string, object>;
-            List<object> agentProperties;
+            var ac = JsonConvert.DeserializeObject<AgentConfiguration>(File.ReadAllText(ConfigurationFilePath));
 
-            if (configContents != null)
-            {
-                agentProperties = configContents["agents"] as List<object>;
-            }
-            else
-            {
-                agentProperties = null;
-            }
-
-            if (agentProperties == null)
-            {
-                throw new ConfigurationErrorsException("The contents of 'plugin.json' are invalid. Please ensure you have a root 'agents' property that contains an array of JSON objects.");
-            }
-
-            return agentProperties;
+            return ac.Agents.Select(CreateAgentWithConfiguration).ToList();
         }
 
         /// <summary>
-        /// The AgentFactory will read configuration data from specified JSON file and invoke this method for each
-        /// object configuration containing an IDictionary of the deserialized properties
+        ///     The AgentFactory will read configuration data from specified JSON file and invoke this method for each
+        ///     object configuration containing an IDictionary of the deserialized properties
         /// </summary>
         /// <param name="properties"></param>
         /// <returns></returns>
-        public abstract Agent CreateAgentWithConfiguration(IDictionary<string, object> properties);
+        public abstract Agent CreateAgentWithConfiguration(ConfiguredAgent properties);
     }
 }
